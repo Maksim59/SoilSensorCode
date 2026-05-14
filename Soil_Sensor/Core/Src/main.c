@@ -252,9 +252,8 @@ uint16_t CalculateCRC(uint8_t *buf, int len) {
 }
 
 void Read_Soil_Sensor(void) {
-    // SlaveID, Function(03), StartAddr High(00), StartAddr Low(00), Points High(00), Points Low(09), CRC Low, CRC High
     uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00};
-    uint8_t response[23] = {0}; // 3 (header) + 18 (9 regs * 2 bytes) + 2 (CRC) = 23
+    uint8_t response[23] = {0}; 
 
     uint16_t crc = CalculateCRC(msg, 6);
     msg[6] = crc & 0xFF;
@@ -262,7 +261,6 @@ void Read_Soil_Sensor(void) {
 
     if (HAL_UART_Transmit(&huart2, msg, 8, 100) == HAL_OK) {
         if (HAL_UART_Receive(&huart2, response, 23, 1000) == HAL_OK) {
-            // Mapping based on your provided image
             currentData.humidity     = ((response[3] << 8) | response[4]) * 0.1f; // 0.1%RH
             currentData.temperature  = ((response[5] << 8) | response[6]) * 0.1f; // 0.1C
             currentData.conductivity = (response[7] << 8) | response[8];          // 1 us/cm
