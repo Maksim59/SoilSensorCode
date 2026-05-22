@@ -21,11 +21,24 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+typedef struct {
+    float humidity;
+    float temperature;
+    uint16_t conductivity;
+    float ph;
+    uint16_t nitrogen;
+    uint16_t phosphorus;
+    uint16_t potassium;
+    uint16_t salinity;
+    uint16_t tds;
+} SoilData;
 
 /* USER CODE END PTD */
 
@@ -40,6 +53,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -50,18 +64,8 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-typedef struct {
-    float humidity;
-    float temperature;
-    uint16_t conductivity;
-    float ph;
-    uint16_t nitrogen;
-    uint16_t phosphorus;
-    uint16_t potassium;
-    uint16_t salinity;
-    uint16_t tds;
-} SoilData;
 
 uint16_t CalculateCRC(uint8_t *buf, int len);
 void Read_Soil_Sensor(void);
@@ -105,6 +109,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -114,7 +119,7 @@ int main(void)
   while (1)
   {
 	  Read_Soil_Sensor();
-	  HAL_Delay(2000);
+	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -130,6 +135,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -158,6 +164,47 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
+  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
 }
 
 /**
@@ -176,7 +223,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 9600;
+  huart2.Init.BaudRate = 4800;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -235,6 +282,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 uint16_t CalculateCRC(uint8_t *buf, int len) {
     uint16_t crc = 0xFFFF;
     for (int pos = 0; pos < len; pos++) {
@@ -251,28 +299,140 @@ uint16_t CalculateCRC(uint8_t *buf, int len) {
     return crc;
 }
 
-void Read_Soil_Sensor(void) {
-    uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00};
-    uint8_t response[23] = {0}; 
+void Read_Soil_Sensor(void)
+{
+    // Modbus Request: ID 01, Func 03, Start Addr 0000, Count 0007 (or 0009 for TDS)
+    // We will request 9 registers to cover everything in your struct
+    uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
+    uint8_t response[19]; // 5 bytes overhead + (9 regs * 2) = 23 bytes. 25 for safety.
+    char buffer[256];
 
+    // Calculate CRC for the 6 bytes of the command
     uint16_t crc = CalculateCRC(msg, 6);
-    msg[6] = crc & 0xFF;
-    msg[7] = (crc >> 8) & 0xFF;
+    msg[6] = crc & 0xFF;        // Low byte
+    msg[7] = (crc >> 8) & 0xFF; // High byte
 
-    if (HAL_UART_Transmit(&huart2, msg, 8, 100) == HAL_OK) {
-        if (HAL_UART_Receive(&huart2, response, 23, 1000) == HAL_OK) {
-            currentData.humidity     = ((response[3] << 8) | response[4]) * 0.1f; // 0.1%RH
-            currentData.temperature  = ((response[5] << 8) | response[6]) * 0.1f; // 0.1C
-            currentData.conductivity = (response[7] << 8) | response[8];          // 1 us/cm
-            currentData.ph           = ((response[9] << 8) | response[10]) * 0.1f;// 0.1
-            currentData.nitrogen     = (response[11] << 8) | response[12];        // 1 mg/kg
-            currentData.phosphorus   = (response[13] << 8) | response[14];        // 1 mg/kg
-            currentData.potassium    = (response[15] << 8) | response[16];        // 1 mg/kg
-            currentData.salinity     = (response[17] << 8) | response[18];        // 1 mg/L
-            currentData.tds          = (response[19] << 8) | response[20];        // 1 mg/L
+    // 1. Send Request
+    if (HAL_UART_Transmit(&huart2, msg, 8, 100) == HAL_OK)
+    {
+        // 2. Receive Response (Expect 23 bytes for 9 registers)
+        if (HAL_UART_Receive(&huart2, response, 19, 1000) == HAL_OK)
+        {
+            // Verify CRC of response would go hee for production code
+
+            // 3. Parse Data (Shift bytes and apply multipliers)
+            currentData.humidity     = ((response[3] << 8) | response[4]) * 0.1f;
+
+            // Cast temperature to int16_t to handle negative values correctly
+            int16_t rawTemp          = (int16_t)((response[5] << 8) | response[6]);
+            currentData.temperature  = rawTemp * 0.1f;
+
+            currentData.conductivity = (response[7] << 8) | response[8];
+            currentData.ph           = ((response[9] << 8) | response[10]) * 0.1f;
+            currentData.nitrogen     = (response[11] << 8) | response[12];
+            currentData.phosphorus   = (response[13] << 8) | response[14];
+            currentData.potassium    = (response[15] << 8) | response[16];
+
+            // 4. Format String for PC Debugging
+            snprintf(buffer, sizeof(buffer),
+                    "--- Soil Report ---\r\n"
+                    "Temp: %.1f C, Hum: %.1f %%\r\n"
+                    "PH: %.1f, EC: %u us/cm\r\n"
+                    "N: %u, P: %u, K: %u mg/kg\r\n"
+                    "TDS: %u mg/L\r\n\r\n",
+                    currentData.temperature, currentData.humidity,
+                    currentData.ph, currentData.conductivity,
+                    currentData.nitrogen, currentData.phosphorus, currentData.potassium,
+                    currentData.tds);
+
+            HAL_UART_Transmit(&huart1, (uint8_t*)buffer, strlen(buffer), 200);
+        }
+        else
+        {
+            HAL_UART_Transmit(&huart1, (uint8_t*)"Sensor Timeout\r\n", 16, 100);
         }
     }
 }
+
+//void Read_Soil_Sensor(void) {
+//    uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
+//    uint8_t response[23] = {0};
+//
+//    uint16_t crc = CalculateCRC(msg, 6);
+//    msg[6] = crc & 0xFF;
+//    msg[7] = (crc >> 8) & 0xFF;
+//
+//    if (HAL_UART_Transmit(&huart1, msg, 8, 100) == HAL_OK) {
+//        if (HAL_UART_Receive(&huart1, response, 23, 1000) == HAL_OK) {
+//            currentData.humidity     = ((response[3] << 8) | response[4]) * 0.1f; // 0.1%RH
+//            currentData.temperature  = ((response[5] << 8) | response[6]) * 0.1f;
+//            currentData.conductivity = (response[7] << 8) | response[8];
+//            currentData.ph           = ((response[9] << 8) | response[10]) * 0.1f;
+//            currentData.nitrogen     = (response[11] << 8) | response[12];
+//            currentData.phosphorus   = (response[13] << 8) | response[14];
+//            currentData.potassium    = (response[15] << 8) | response[16];
+//            currentData.salinity     = (response[17] << 8) | response[18];
+//            currentData.tds          = (response[19] << 8) | response[20];
+//        }
+//    }
+//
+//    HAL_UART_Transmit(&huart2, currentData.nitrogen, 8, 100);
+//
+//
+//}
+
+//void Read_Soil_Sensor(void)
+//{
+//    uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
+//    uint8_t response[23] = {0};
+//
+//    char buffer[128];
+//
+//    uint16_t crc = CalculateCRC(msg, 6);
+//
+//    msg[6] = crc & 0xFF;
+//    msg[7] = (crc >> 8) & 0xFF;
+//
+//    if (HAL_UART_Transmit(&huart1, msg, 8, 100) == HAL_OK)
+//    {
+//        if (HAL_UART_Receive(&huart1, response, 19, 1000) == HAL_OK)
+//        {
+//            currentData.humidity     = ((response[3] << 8) | response[4]) * 0.1f;
+//            currentData.temperature  = ((response[5] << 8) | response[6]) * 0.1f;
+//            currentData.conductivity = (response[7] << 8) | response[8];
+//            currentData.ph           = ((response[9] << 8) | response[10]) * 0.1f;
+//            currentData.nitrogen     = (response[11] << 8) | response[12];
+//            currentData.phosphorus   = (response[13] << 8) | response[14];
+//            currentData.potassium    = (response[15] << 8) | response[16];
+//            currentData.salinity     = (response[17] << 8) | response[18];
+//            currentData.tds          = (response[19] << 8) | response[20];
+//
+//            sprintf(buffer, // @suppress("Float formatting support")
+//                    "Temp: %.1f C\r\n"
+//                    "Humidity: %.1f %%\r\n"
+//                    "Nitrogen: %u\r\n"
+//                    "Phosphorus: %u\r\n"
+//                    "Potassium: %u\r\n\r\n",
+//                    currentData.temperature,
+//                    currentData.humidity,
+//                    currentData.nitrogen,
+//                    currentData.phosphorus,
+//                    currentData.potassium);
+//
+//            //transmit data through uart
+//
+//            HAL_UART_Transmit(&huart2,
+//                              (uint8_t*)buffer,
+//                              strlen(buffer),
+//                              100);
+//        } else {
+//            HAL_UART_Transmit(&huart2,
+//                              (uint8_t*)"RX FAIL\r\n",
+//                              9, 100);
+//            return;
+//        }
+//    }
+//}
 /* USER CODE END 4 */
 
 /**
