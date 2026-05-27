@@ -82,12 +82,12 @@ extern UART_HandleTypeDef huart2;
 
 /**
   * @brief  The application entry point.
-  * @retval in
+  * @retval int
   */
 int main(void)
 {
 
-  /* USER CODE BEGIN 1 *
+  /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
 
@@ -111,8 +111,6 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
-
-
   /* USER CODE BEGIN 2 */
   HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT OK\r\n", 9, 500);
   /* USER CODE END 2 */
@@ -200,7 +198,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  if (HAL_RS485Ex_Init(&huart1, UART_DE_POLARITY_HIGH, 0, 0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -304,7 +302,7 @@ uint16_t CalculateCRC(uint8_t *buf, int len) {
 
 void Read_Soil_Sensor(void)
 {
-    uint8_t msg[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00};
+    uint8_t msg[8] = {0xFF, 0x03, 0x07, 0xD0, 0x00, 0x01, 0x91, 0x59};
     uint16_t crc = CalculateCRC(msg, 6);
     msg[6] = crc & 0xFF;
     msg[7] = (crc >> 8) & 0xFF;
@@ -318,7 +316,7 @@ void Read_Soil_Sensor(void)
     if (HAL_UART_Transmit(&huart1, msg, 8, 100) == HAL_OK)
     {
         HAL_Delay(100);  // Increased from 10 to 100ms
-        if (HAL_UART_Receive(&huart1, response, 19, 2000) == HAL_OK)  // Increased timeout to 2000ms
+        if (HAL_UART_Receive(&huart1, response, 19, 1000) == HAL_OK)  // Increased timeout to 2000ms
         {
             snprintf(buffer, sizeof(buffer),
                     "RAW: %02X %02X %02X %02X %02X %02X %02X %02X %02X\r\n",
