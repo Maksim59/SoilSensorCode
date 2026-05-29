@@ -72,7 +72,6 @@ uint16_t CalculateCRC(uint8_t *buf, int len);
 void Read_Soil_Sensor(void);
 
 SoilData currentData;
-extern UART_HandleTypeDef huart2;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -198,7 +197,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_RS485Ex_Init(&huart1, UART_DE_POLARITY_HIGH, 0, 0) != HAL_OK)
+  if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -307,27 +306,40 @@ void Read_Soil_Sensor(void)
     msg[6] = crc & 0xFF;
     msg[7] = (crc >> 8) & 0xFF;
 
-    uint8_t response[19] = {0};
+    uint8_t response[7] = {0};
     char buffer[256];
 
     // Flush any garbage in RX buffer first
-    __HAL_UART_FLUSH_DRREGISTER(&huart1);
+    HAL_StatusTypeDef receiveProblem;
 
-    if (HAL_UART_Transmit(&huart1, msg, 8, 100) == HAL_OK)
-    {
-        HAL_Delay(100);  // Increased from 10 to 100ms
-        if (HAL_UART_Receive(&huart1, response, 19, 1000) == HAL_OK)  // Increased timeout to 2000ms
+    if (HAL_UART_Transmit(&huart1, msg, 8, 2005) == HAL_OK)
+    {  // Increased from 10 to 100ms
+    	receiveProblem = HAL_UART_Receive(&huart1, response, 7, 2500);
+        if (receiveProblem == HAL_OK)  // Increased timeout to 2000ms
         {
+        	HAL_UART_Transmit(&huart2, (uint8_t*)"OK\r\n", 7, 2500);
             snprintf(buffer, sizeof(buffer),
-                    "RAW: %02X %02X %02X %02X %02X %02X %02X %02X %02X\r\n",
-                    response[0], response[1], response[2],
-                    response[3], response[4], response[5],
-                    response[6], response[7], response[8]);
-            HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 200);
+                    "RAW: %02X %02X %02X %02X %02X %02X %02X\r\n",
+                    response[1], response[2], response[3],
+                    response[4], response[5], response[6],
+                    response[0]);
+            HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), 2500);
+        }
+
+        else if(receiveProblem == HAL_ERROR){
+                	HAL_UART_Transmit(&huart2, (uint8_t*)"ERROR\r\n", 9, 2500);
+        }
+        else if(receiveProblem == HAL_BUSY){
+                	HAL_UART_Transmit(&huart2, (uint8_t*)"BUSY\r\n", 9, 2500);
+        }
+
+        else if(receiveProblem == HAL_TIMEOUT)
+        {
+            HAL_UART_Transmit(&huart2, (uint8_t*)"Timeout\r\n", 9, 2500);
         }
         else
         {
-            HAL_UART_Transmit(&huart2, (uint8_t*)"Timeout\r\n", 9, 100);
+            HAL_UART_Transmit(&huart2, (uint8_t*)"IDFK\r\n", 9, 25);
         }
     }
 }
