@@ -5,4 +5,4 @@
 ../Core/Src/main.c:250:13:MX_GPIO_Init	1
 ../Core/Src/main.c:286:10:CalculateCRC	4
 ../Core/Src/main.c:302:6:Read_Soil_Sensor	6
-../Core/Src/main.c:432:6:Error_Handler	1
+../Core/Src/main.c:455:6:Error_Handler	1
