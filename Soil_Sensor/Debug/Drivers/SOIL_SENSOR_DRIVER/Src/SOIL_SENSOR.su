@@ -1,0 +1,12 @@
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:28:17:CRC16	24	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:45:20:SendRecv	32	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:82:13:Soil_ReadAll	56	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:109:13:Soil_QuerySlaveID	48	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:130:13:Soil_SetSlaveID	40	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:147:13:Soil_SetBaudRate	40	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:163:13:Soil_WriteNitrogen	40	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:180:13:Soil_WritePhosphorus	40	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:197:13:Soil_WritePotassium	40	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:211:6:Soil_IsAlive	24	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:220:6:Soil_FormatData	96	static
+../Drivers/SOIL_SENSOR_DRIVER/Src/SOIL_SENSOR.c:240:13:Soil_StatusStr	16	static
