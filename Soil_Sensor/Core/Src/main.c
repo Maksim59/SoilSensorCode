@@ -112,34 +112,29 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT OK\r\n", 9, 500);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /*Read_Soil_Sensor();
-	  HAL_Delay(1000);*/
+
 	  Soil_Data data;
 	  char buf[256];
-	  uint8_t slave_id = 0;
 
-	  // Test 1 - Query slave ID
-	  Soil_Status status = Soil_QuerySlaveID(&huart1, &slave_id);
+	  Soil_Status status = Soil_ReadAvg(&huart1, &data);
 	  if (status == SOIL_OK) {
-	      snprintf(buf, sizeof(buf), "Slave ID: %u\r\n", slave_id);
-	      HAL_UART_Transmit(&huart2, (uint8_t*)buf, strlen(buf), 100);
+	      Soil_FormatData(&data, buf, sizeof(buf));
+	      HAL_UART_Transmit(&huart2, (uint8_t*)buf, strlen(buf), 500);
 	  } else {
-	      snprintf(buf, sizeof(buf), "QuerySlaveID Error: %s\r\n", Soil_StatusStr(status));
+	      snprintf(buf, sizeof(buf), "Error: %s\r\n", Soil_StatusStr(status));
 	      HAL_UART_Transmit(&huart2, (uint8_t*)buf, strlen(buf), 100);
 	  }
-	  HAL_Delay(1000);
 
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
   }
+	  /* USER CODE END WHILE */
+	  /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
 }
 
